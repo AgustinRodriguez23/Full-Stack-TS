@@ -6,7 +6,7 @@ y `posts` (publicaciones), con una relación 1-a-muchos mediante foreign key
 
 ### Evidencia en Supabase
 
-![Tablas en Supabase](../Supabase%20posts%20profiles.JPG)
+![Tablas en Supabase](./assets/Supabase%20posts%20profiles.JPG)
 
 ## Verificación de la relación (Foreign Key + Cascade)
 
@@ -33,6 +33,6 @@ funciona correctamente:
 
 Para correr el test:
 
-\`\`\`bash
+~~~bash
 npx tsx src/db/test-cascade.ts
-\`\`\`
+~~~
