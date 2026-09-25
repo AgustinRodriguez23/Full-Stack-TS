@@ -1,13 +1,9 @@
 import dotenv from "dotenv";
-import postgres from "postgres";
-import { drizzle } from "drizzle-orm/postgres-js";
+import { db } from "@/db/index"
 import { profiles, posts } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 
 dotenv.config();
-
-const client = postgres(process.env.DATABASE_URL!);
-const db = drizzle(client);
 
 async function testCascadeDelete() {
   try {
@@ -49,9 +45,7 @@ async function testCascadeDelete() {
     }
   } catch (err) {
     console.error("Error durante el test:", err);
-  } finally {
-    await client.end();
-  }
+  } 
 }
 
-testCascadeDelete();
+testCascadeDelete().then(() => process.exit(0))

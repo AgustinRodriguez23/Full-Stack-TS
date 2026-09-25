@@ -34,5 +34,28 @@ funciona correctamente:
 Para correr el test:
 
 ~~~bash
-npx tsx src/db/test-cascade.ts
+npx tsx tests/test-cascade.ts
 ~~~
+
+## API tRPC — Validación con Zod
+
+Se implementaron dos routers de dominio (`user` y `post`), con procedimientos
+de lectura (query) y escritura (mutation), validados con Zod:
+
+- `user.getUsers` — trae todos los perfiles.
+- `user.createUser` — crea un perfil (valida `username` no vacío).
+- `post.getPosts` — trae posts, con filtros opcionales por `authorId` y `published`.
+- `post.createPost` — crea un post (valida `title` de 5-100 caracteres, `authorId` como UUID válido).
+
+### Probar los endpoints
+
+Con `npm run dev` corriendo:
+
+- GET `http://localhost:3000/api/trpc/post.getPosts`
+- POST `http://localhost:3000/api/trpc/post.createPost` con body:
+  \`\`\`json
+  { "title": "Mi post", "authorId": "<uuid-de-un-profile>" }
+  \`\`\`
+
+Un `title` de menos de 5 caracteres devuelve `400 BAD_REQUEST` con el detalle
+del error de validación de Zod.
