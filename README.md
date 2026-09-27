@@ -59,3 +59,31 @@ Con `npm run dev` corriendo:
 
 Un `title` de menos de 5 caracteres devuelve `400 BAD_REQUEST` con el detalle
 del error de validación de Zod.
+
+## Cliente tRPC (Frontend)
+
+Se implementó un Provider de tRPC + React Query en `src/lib/trpc/Provider.tsx`,
+integrado en el layout raíz (`src/app/layout.tsx`). La página `/posts` 
+(`src/app/posts/page.tsx`) consume:
+
+- `trpc.post.getPosts.useQuery()` — lista los posts, tipado automáticamente
+  desde el `appRouter` del servidor.
+- `trpc.post.createPost.useMutation()` — crea un post, con validación Zod
+  visible en tiempo real en el formulario (ej: título de menos de 5 caracteres
+  muestra el error del servidor en pantalla).
+
+## Testing
+
+Se reemplazó el script de prueba por defecto por **Vitest**:
+
+\`\`\`bash
+npm test
+\`\`\`
+
+Test incluido: `tests/cascade-delete.test.ts`, que verifica que al borrar un
+`profile`, sus `posts` asociados se eliminan automáticamente por el
+`ON DELETE CASCADE` definido en el schema de Drizzle.
+
+> Nota: este test corre contra la base de datos real de Supabase (crea y borra
+> sus propios datos de prueba). Para un entorno de CI más robusto, el siguiente
+> paso sería aislarlo con una base de datos de testing dedicada.
