@@ -1,3 +1,81 @@
+# Full Stack Type-Safe
+
+Aplicación full-stack type-safe end-to-end, construida con Next.js, tRPC, 
+Drizzle ORM y Supabase (Postgres + Auth + Row Level Security).
+
+🔗 **Aplicación desplegada:** https://full-stack-ts.vercel.app/
+
+## Objetivo
+
+Demostrar una arquitectura completa donde el tipado de TypeScript viaja 
+desde el esquema de la base de datos hasta los componentes de React, sin 
+interfaces duplicadas ni `any`, con autenticación real y seguridad aplicada 
+en dos capas independientes (API y base de datos).
+
+## Arquitectura
+
+┌─────────────────┐ ┌──────────────┐ ┌───────────────────┐
+│ Cliente (React) │──────▶│ tRPC │──────▶│ Drizzle ORM │
+│ Next.js App │◀──────│ (Zod input) │◀──────│ │
+│ Router │ │ (validation) │ └─────────┬──────────┘
+└────────┬─────────┘ └──────┬───────┘ │
+│ │ ▼
+│ │ ┌───────────────────┐
+│ ┌──────▼───────┐ │ Supabase Postgres │
+│ │ ctx.user │ │ + RLS policies │
+│ │ (protected │◀───────│ (auth.uid()) │
+│ │ Procedure) │ └───────────────────┘
+│ │
+▼ ▼
+┌──────────────────────────────────────┐
+│ Supabase Auth (SSR) │
+│ cookies de sesión + JWT validation │
+│ (@supabase/ssr: client/server/proxy) │
+└────────────────────────────────────────┘
+
+
+**Flujo de una request protegida** (ej: crear un post):
+1. El componente cliente llama a `trpc.post.createPost.useMutation()`.
+2. La request viaja con las cookies de sesión al endpoint `/api/trpc/[trpc]`.
+3. `createContext` lee la cookie, valida el JWT con `supabase.auth.getUser()`, 
+   y expone `ctx.user`.
+4. El middleware `isAuthed` verifica que `ctx.user` no sea `null`; si lo es, 
+   corta con `401 UNAUTHORIZED` antes de tocar la base de datos.
+5. Zod valida el `input` (título, longitud, tipos).
+6. El resolver inserta en Postgres vía Drizzle, usando `ctx.user.id` como 
+   `authorId` (nunca un valor que mande el cliente).
+7. Postgres aplica además sus propias políticas RLS (`auth.uid() = author_id`) 
+   como segunda capa de seguridad, independiente de tRPC.
+
+## Stack técnico
+
+- **Frontend:** Next.js 16 (App Router), React, TypeScript
+- **API:** tRPC (routers, procedures, middleware)
+- **Validación:** Zod (schemas compartidos, inferencia de tipos)
+- **Base de datos:** PostgreSQL (Supabase), Drizzle ORM
+- **Autenticación:** Supabase Auth + `@supabase/ssr`
+- **Seguridad:** Row Level Security (RLS) con políticas `auth.uid()`
+- **Testing:** Vitest
+- **Despliegue:** Vercel
+
+## Correr el proyecto en local
+
+\`\`\`bash
+git clone https://github.com/AgustinRodriguez23/Full-Stack-TS.git
+cd Full-Stack-TS
+npm install
+cp .env.example .env
+# completar .env con tus credenciales de Supabase
+npm run dev
+\`\`\`
+
+---
+
+*(A continuación, el detalle módulo por módulo: esquema de datos, tRPC, 
+auth, RLS — documentado en las secciones siguientes.)*
+
+
+
 ## Esquema de base de datos
 
 Se definieron dos tablas relacionadas en Drizzle ORM: `profiles` (usuarios) 
@@ -11,7 +89,7 @@ y `posts` (publicaciones), con una relación 1-a-muchos mediante foreign key
 ## Verificación de la relación (Foreign Key + Cascade)
 
 Además de validar el esquema en Supabase, se corrió un script de prueba 
-(`src/db/test-cascade.ts`) para confirmar en la práctica que el `ON DELETE CASCADE` 
+(`tests/cascade-delete.test.ts`) para confirmar en la práctica que el `ON DELETE CASCADE` 
 funciona correctamente:
 
 1. Se crea un `profile` de prueba.
