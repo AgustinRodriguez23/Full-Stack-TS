@@ -5,7 +5,6 @@ import { trpc } from '@/lib/trpc/client';
 
 export default function PostsPage() {
   const [title, setTitle] = useState('');
-  const [authorId, setAuthorId] = useState('');
 
   const utils = trpc.useUtils();
 
@@ -20,7 +19,7 @@ export default function PostsPage() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    createPost.mutate({ title, authorId });
+    createPost.mutate({ title });
   }
 
   return (
@@ -34,14 +33,6 @@ export default function PostsPage() {
             placeholder="Título (mín. 5 caracteres)"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-          />
-        </div>
-        <div>
-          <input
-            type="text"
-            placeholder="Author ID (UUID)"
-            value={authorId}
-            onChange={(e) => setAuthorId(e.target.value)}
           />
         </div>
         <button type="submit" disabled={createPost.isPending}>
