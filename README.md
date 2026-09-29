@@ -43,22 +43,25 @@ Se implementaron dos routers de dominio (`user` y `post`), con procedimientos
 de lectura (query) y escritura (mutation), validados con Zod:
 
 - `user.getUsers` — trae todos los perfiles.
-- `user.createUser` — crea un perfil (valida `username` no vacío).
+- `user.createUser` — crea un perfil (valida `username` no vacío). Requiere sesión activa; el `id` del perfil se toma de la sesión (mismo UUID que `auth.users`).
 - `post.getPosts` — trae posts, con filtros opcionales por `authorId` y `published`.
-- `post.createPost` — crea un post (valida `title` de 5-100 caracteres, `authorId` como UUID válido).
+- `post.createPost` — crea un post (valida `title` de 5-100 caracteres). Requiere sesión activa (`protectedProcedure`); el `authorId` se toma de la sesión, no del input.
 
 ### Probar los endpoints
 
 Con `npm run dev` corriendo:
 
-- GET `http://localhost:3000/api/trpc/post.getPosts`
-- POST `http://localhost:3000/api/trpc/post.createPost` con body:
+- GET `http://localhost:3000/api/trpc/post.getPosts` (pública, no requiere sesión)
+- GET `http://localhost:3000/api/trpc/post.getMyPosts` (protegida, requiere sesión activa — devuelve `401 UNAUTHORIZED` sin ella)
+- POST `http://localhost:3000/api/trpc/post.createPost` (protegida, requiere sesión). Body:
   \`\`\`json
-  { "title": "Mi post", "authorId": "<uuid-de-un-profile>" }
+  { "title": "Mi post" }
   \`\`\`
+  El `authorId` se asigna automáticamente desde la sesión (`ctx.user.id`), no se envía en el body.
 
 Un `title` de menos de 5 caracteres devuelve `400 BAD_REQUEST` con el detalle
-del error de validación de Zod.
+del error de validación de Zod. Un request sin sesión activa a un
+procedimiento protegido devuelve `401 UNAUTHORIZED`.
 
 ## Cliente tRPC (Frontend)
 
@@ -224,3 +227,7 @@ fetch('/api/trpc/post.createPost', {
 \`\`\`
 
 Devuelve el post creado con `authorId` igual al `id` del usuario logueado.
+
+## Evidencia RLS funcionando
+
+![Rol anon Error](./assets/RLS-working.JPG)

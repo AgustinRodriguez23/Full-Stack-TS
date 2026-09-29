@@ -4,7 +4,6 @@ import { createPostSchema, getPostsSchema } from '@/lib/validation/post';
 import { and, eq } from 'drizzle-orm';
 
 export const postRouter = router({
-  // Query pública: cualquiera puede ver posts
   getPosts: publicProcedure
     .input(getPostsSchema.optional())
     .query(async ({ ctx, input }) => {
@@ -23,7 +22,14 @@ export const postRouter = router({
         .where(conditions.length > 0 ? and(...conditions) : undefined);
     }),
 
-  // Mutation protegida: requiere sesión activa
+  // Query privada, solo los posts del usuario autenticado
+  getMyPosts: protectedProcedure.query(async ({ ctx }) => {
+    return ctx.db
+      .select()
+      .from(posts)
+      .where(eq(posts.authorId, ctx.user.id));
+  }),
+
   createPost: protectedProcedure
     .input(createPostSchema)
     .mutation(async ({ ctx, input }) => {
@@ -31,7 +37,7 @@ export const postRouter = router({
         .insert(posts)
         .values({
           ...input,
-          authorId: ctx.user.id, // <- sale de la sesión, NO del input
+          authorId: ctx.user.id,
         })
         .returning();
 
