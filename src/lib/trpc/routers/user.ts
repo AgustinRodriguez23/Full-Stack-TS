@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { router, publicProcedure } from '../server';
+import { router, publicProcedure, protectedProcedure } from '../server';
 import { profiles } from '@/db/schema';
 
 export const userRouter = router({
@@ -7,7 +7,8 @@ export const userRouter = router({
     return ctx.db.select().from(profiles);
   }),
 
-  createUser: publicProcedure
+  // Mutation protegida: crea el profile ligado al usuario autenticado
+  createUser: protectedProcedure
     .input(
       z.object({
         username: z.string().min(1, 'El username no puede estar vacío'),
@@ -16,7 +17,10 @@ export const userRouter = router({
     .mutation(async ({ ctx, input }) => {
       const [newUser] = await ctx.db
         .insert(profiles)
-        .values({ username: input.username })
+        .values({
+          id: ctx.user.id, // mismo UUID que auth.users, no autogenerado
+          username: input.username,
+        })
         .returning();
 
       return newUser;

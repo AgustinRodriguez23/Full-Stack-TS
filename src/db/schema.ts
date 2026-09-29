@@ -3,7 +3,6 @@ import {
   uuid,
   serial,
   text,
-  integer,
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";

@@ -15,6 +15,7 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.0",
     "@tanstack/react-query": "^5.103.2",
     "@trpc/client": "^11.13.0",
