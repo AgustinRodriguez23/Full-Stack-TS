@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   serial,
   text,
@@ -25,11 +26,39 @@ export const posts = pgTable("posts", {
 
 export const profilesRelations = relations(profiles, ({ many }) => ({
   posts: many(posts),
+  pins: many(pins),
 }));
 
 export const postsRelations = relations(posts, ({ one }) => ({
   author: one(profiles, {
     fields: [posts.authorId],
+    references: [profiles.id],
+  }),
+}));
+
+export const pinCategory = pgEnum("pin_category", [
+  "tatuajes",
+  "paisajes",
+  "dibujos",
+  "ropa",
+]);
+
+export const pins = pgTable("pins", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: text("title").notNull(),
+  description: text("description"),
+  imageUrl: text("image_url").notNull(),
+  imagePath: text("image_path").notNull(),
+  category: pinCategory("category").notNull(),
+  authorId: uuid("author_id")
+    .references(() => profiles.id, { onDelete: "cascade" })
+    .notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const pinsRelations = relations(pins, ({ one }) => ({
+  author: one(profiles, {
+    fields: [pins.authorId],
     references: [profiles.id],
   }),
 }));
