@@ -1,311 +1,126 @@
-# Full Stack Type-Safe
+# PinsApp
 
-Aplicación full-stack type-safe end-to-end, construida con Next.js, tRPC, 
-Drizzle ORM y Supabase (Postgres + Auth + Row Level Security).
+Galería para exponer arte e imágenes propias, organizada por categorías: **tatuajes, paisajes, dibujos y ropa**. Cada persona se registra, sube su trabajo y lo muestra en una vista general tipo Pinterest.
 
-🔗 **Aplicación desplegada:** https://full-stack-ts.vercel.app/
+🔗 **Demo en vivo:** https://full-stack-ts.vercel.app/
 
-## Objetivo
+![Galería](./assets/gallery.JPG)
 
-Demostrar una arquitectura completa donde el tipado de TypeScript viaja 
-desde el esquema de la base de datos hasta los componentes de React, sin 
-interfaces duplicadas ni `any`, con autenticación real y seguridad aplicada 
-en dos capas independientes (API y base de datos).
+## Qué se puede hacer
 
-## Arquitectura
+- **Explorar la galería**: grilla tipo masonry, responsive (2, 3 o 4 columnas según el ancho), con el título y la categoría al pasar el mouse.
+- **Filtrar por categoría**: tatuajes, paisajes, dibujos o ropa, con un click.
+- **Subir imágenes propias**: formulario con título, descripción, categoría y archivo (JPG, PNG o WebP).
+- **Mi perfil**: espacio personal con todas tus publicaciones y la opción de borrarlas.
+- **Cuentas de usuario**: registro, login y logout. La galería es pública; subir y borrar requiere sesión.
 
-┌─────────────────┐ ┌──────────────┐ ┌───────────────────┐
-│ Cliente (React) │──────▶│ tRPC │──────▶│ Drizzle ORM │
-│ Next.js App │◀──────│ (Zod input) │◀──────│ │
-│ Router │ │ (validation) │ └─────────┬──────────┘
-└────────┬─────────┘ └──────┬───────┘ │
-│ │ ▼
-│ │ ┌───────────────────┐
-│ ┌──────▼───────┐ │ Supabase Postgres │
-│ │ ctx.user │ │ + RLS policies │
-│ │ (protected │◀───────│ (auth.uid()) │
-│ │ Procedure) │ └───────────────────┘
-│ │
-▼ ▼
-┌──────────────────────────────────────┐
-│ Supabase Auth (SSR) │
-│ cookies de sesión + JWT validation │
-│ (@supabase/ssr: client/server/proxy) │
-└────────────────────────────────────────┘
-
-
-**Flujo de una request protegida** (ej: crear un post):
-1. El componente cliente llama a `trpc.post.createPost.useMutation()`.
-2. La request viaja con las cookies de sesión al endpoint `/api/trpc/[trpc]`.
-3. `createContext` lee la cookie, valida el JWT con `supabase.auth.getUser()`, 
-   y expone `ctx.user`.
-4. El middleware `isAuthed` verifica que `ctx.user` no sea `null`; si lo es, 
-   corta con `401 UNAUTHORIZED` antes de tocar la base de datos.
-5. Zod valida el `input` (título, longitud, tipos).
-6. El resolver inserta en Postgres vía Drizzle, usando `ctx.user.id` como 
-   `authorId` (nunca un valor que mande el cliente).
-7. Postgres aplica además sus propias políticas RLS (`auth.uid() = author_id`) 
-   como segunda capa de seguridad, independiente de tRPC.
-
-## Stack técnico
-
-- **Frontend:** Next.js 16 (App Router), React, TypeScript
-- **API:** tRPC (routers, procedures, middleware)
-- **Validación:** Zod (schemas compartidos, inferencia de tipos)
-- **Base de datos:** PostgreSQL (Supabase), Drizzle ORM
-- **Autenticación:** Supabase Auth + `@supabase/ssr`
-- **Seguridad:** Row Level Security (RLS) con políticas `auth.uid()`
-- **Testing:** Vitest
-- **Despliegue:** Vercel
-
-## Correr el proyecto en local
-
-\`\`\`bash
-git clone https://github.com/AgustinRodriguez23/Full-Stack-TS.git
-cd Full-Stack-TS
-npm install
-cp .env.example .env
-# completar .env con tus credenciales de Supabase
-npm run dev
-\`\`\`
+| Galería | Subir imagen | Mi perfil |
+|---|---|---|
+| ![Galería](./assets/gallery.JPG) | ![Subida](./assets/upload.JPG) | ![Perfil](./assets/profile.JPG) |
 
 ---
 
-*(A continuación, el detalle módulo por módulo: esquema de datos, tRPC, 
-auth, RLS — documentado en las secciones siguientes.)*
+## Detalles técnicos
 
+Aplicación full-stack con tipado end-to-end: los tipos viajan desde el esquema de la base de datos hasta los componentes de React, sin interfaces duplicadas ni `any`.
 
+### Stack
 
-## Esquema de base de datos
+| Capa | Tecnología |
+|---|---|
+| Frontend | Next.js 16 (App Router), React, TypeScript, Tailwind CSS v4 |
+| API | tRPC (routers, procedures y middleware) |
+| Validación | Zod (los tipos se infieren de los schemas) |
+| Base de datos | PostgreSQL en Supabase + Drizzle ORM |
+| Autenticación | Supabase Auth con `@supabase/ssr` (sesión por cookies) |
+| Archivos | Supabase Storage |
+| Testing | Vitest |
+| Deploy | Vercel |
 
-Se definieron dos tablas relacionadas en Drizzle ORM: `profiles` (usuarios) 
-y `posts` (publicaciones), con una relación 1-a-muchos mediante foreign key 
-(`posts.author_id` → `profiles.id`, `ON DELETE CASCADE`).
+### Arquitectura
 
-### Evidencia en Supabase
+```
+Cliente (React)  ──▶  tRPC (Zod)  ──▶  Drizzle ORM  ──▶  Supabase Postgres (RLS)
+       │                  │
+       └──── Supabase Auth (cookies + JWT) ────┘
+       └──── Supabase Storage (subida directa del archivo) ──▶ bucket "pins"
+```
 
-![Tablas en Supabase](./assets/Supabase%20posts%20profiles.JPG)
+Flujo al publicar una imagen:
 
-## Verificación de la relación (Foreign Key + Cascade)
+1. El navegador sube el archivo a Storage, en la carpeta `<user-id>/`.
+2. Con la URL resultante llama a `trpc.pin.create`.
+3. `createContext` valida la sesión con `supabase.auth.getUser()` y expone `ctx.user`.
+4. El middleware `isAuthed` corta con `401 UNAUTHORIZED` si no hay sesión.
+5. Zod valida el input y Drizzle inserta la fila. El `authorId` sale de `ctx.user.id`, nunca del cliente.
 
-Además de validar el esquema en Supabase, se corrió un script de prueba 
-(`tests/cascade-delete.test.ts`) para confirmar en la práctica que el `ON DELETE CASCADE` 
-funciona correctamente:
+### Modelo de datos
 
-1. Se crea un `profile` de prueba.
-2. Se crea un `post` asociado a ese `profile` (vía `authorId`).
-3. Se confirma que el `post` existe.
-4. Se borra el `profile`.
-5. Se confirma que el `post` fue eliminado automáticamente por Postgres, 
-   sin necesidad de borrarlo manualmente desde el código.
+- `profiles`: usuarios (su `id` es el mismo que el de `auth.users`). Un trigger en Postgres lo crea automáticamente al registrarse.
+- `pins`: imágenes, con `category` como `ENUM` de Postgres y FK a `profiles` con `ON DELETE CASCADE`.
+- `posts`: tabla del módulo inicial, conservada junto con sus tests.
 
-### Resultado del test
+Las migraciones generadas están en [`/drizzle`](./drizzle) y el SQL manual (RLS, trigger, Storage) en [`/drizzle/manual`](./drizzle/manual).
 
-✅ Profile creado: { id: '...', username: 'test-cascade-user', createdAt: ... }
-✅ Post creado: { id: 1, title: 'Post de prueba', ... }
-📋 Posts antes del delete: 1
-🗑️  Profile borrado
-📋 Posts después del delete: 0
-✅ CASCADE funcionó correctamente
+### API tRPC
 
+| Procedimiento | Acceso | Descripción |
+|---|---|---|
+| `pin.getAll` | Público | Lista pins, con filtro opcional por categoría o autor |
+| `pin.getMine` | Protegido | Pins del usuario logueado |
+| `pin.create` | Protegido | Crea un pin y valida que el archivo esté en la carpeta del usuario |
+| `pin.delete` | Protegido | Borra un pin propio (filtra por `ctx.user.id`) |
+| `user.me` | Público | Usuario de la sesión o `null` |
+| `post.*`, `user.*` | Mixto | Procedimientos del módulo inicial |
 
-Para correr el test:
+### Seguridad en capas
 
-~~~bash
-npx tsx tests/test-cascade.ts
-~~~
+1. **Proxy de Next.js**: redirige a `/login` si se accede a una ruta protegida sin sesión.
+2. **tRPC `protectedProcedure`**: devuelve `401` sin sesión, y el autor siempre sale de la sesión del servidor.
+3. **Row Level Security en Postgres**: políticas con `auth.uid()` en `profiles`, `posts` y `pins`. Lectura pública, escritura solo del dueño.
+4. **Storage con RLS**: cada usuario solo puede subir y borrar dentro de su propia carpeta.
 
-## API tRPC — Validación con Zod
+![RLS rechazando un INSERT sin sesión](./assets/RLS-working.JPG)
 
-Se implementaron dos routers de dominio (`user` y `post`), con procedimientos
-de lectura (query) y escritura (mutation), validados con Zod:
+> Drizzle se conecta con un rol privilegiado que no pasa por RLS, por eso `protectedProcedure` es el control principal para las consultas del backend. RLS protege el acceso directo a la base con la clave pública.
 
-- `user.getUsers` — trae todos los perfiles.
-- `user.createUser` — crea un perfil (valida `username` no vacío). Requiere sesión activa; el `id` del perfil se toma de la sesión (mismo UUID que `auth.users`).
-- `post.getPosts` — trae posts, con filtros opcionales por `authorId` y `published`.
-- `post.createPost` — crea un post (valida `title` de 5-100 caracteres). Requiere sesión activa (`protectedProcedure`); el `authorId` se toma de la sesión, no del input.
+### Correr en local
 
-### Probar los endpoints
+```bash
+git clone https://github.com/AgustinRodriguez23/Full-Stack-TS.git
+cd Full-Stack-TS
+npm install
+cp .env.example .env   # completar con tus credenciales de Supabase
+npx drizzle-kit migrate
+npm run dev
+```
 
-Con `npm run dev` corriendo:
+Variables de entorno (ver `.env.example`):
 
-- GET `http://localhost:3000/api/trpc/post.getPosts` (pública, no requiere sesión)
-- GET `http://localhost:3000/api/trpc/post.getMyPosts` (protegida, requiere sesión activa — devuelve `401 UNAUTHORIZED` sin ella)
-- POST `http://localhost:3000/api/trpc/post.createPost` (protegida, requiere sesión). Body:
-  \`\`\`json
-  { "title": "Mi post" }
-  \`\`\`
-  El `authorId` se asigna automáticamente desde la sesión (`ctx.user.id`), no se envía en el body.
+```
+DATABASE_URL=postgresql://...            # Transaction pooler (puerto 6543)
+NEXT_PUBLIC_SUPABASE_URL=https://<proyecto>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<publishable key>
+```
 
-Un `title` de menos de 5 caracteres devuelve `400 BAD_REQUEST` con el detalle
-del error de validación de Zod. Un request sin sesión activa a un
-procedimiento protegido devuelve `401 UNAUTHORIZED`.
+> Usá la **publishable/anon key** en `NEXT_PUBLIC_SUPABASE_ANON_KEY`, nunca una secret key: las variables `NEXT_PUBLIC_` quedan visibles en el navegador.
 
-## Cliente tRPC (Frontend)
+### Tests
 
-Se implementó un Provider de tRPC + React Query en `src/lib/trpc/Provider.tsx`,
-integrado en el layout raíz (`src/app/layout.tsx`). La página `/posts` 
-(`src/app/posts/page.tsx`) consume:
-
-- `trpc.post.getPosts.useQuery()` — lista los posts, tipado automáticamente
-  desde el `appRouter` del servidor.
-- `trpc.post.createPost.useMutation()` — crea un post, con validación Zod
-  visible en tiempo real en el formulario (ej: título de menos de 5 caracteres
-  muestra el error del servidor en pantalla).
-
-## Testing
-
-Se reemplazó el script de prueba por defecto por **Vitest**:
-
-\`\`\`bash
+```bash
 npm test
-\`\`\`
+```
 
-Test incluido: `tests/cascade-delete.test.ts`, que verifica que al borrar un
-`profile`, sus `posts` asociados se eliminan automáticamente por el
-`ON DELETE CASCADE` definido en el schema de Drizzle.
+Verifica con Vitest que el `ON DELETE CASCADE` elimine los posts al borrar un perfil. Corre contra la base real de Supabase.
 
-> Nota: este test corre contra la base de datos real de Supabase (crea y borra
-> sus propios datos de prueba). Para un entorno de CI más robusto, el siguiente
-> paso sería aislarlo con una base de datos de testing dedicada.
+### Deploy
 
-## Autenticación con Supabase Auth
+El proyecto se despliega en Vercel desde `main`, con las variables de entorno cargadas en el panel (`DATABASE_URL` como Secret y las `NEXT_PUBLIC_*` como Config). Las ramas generan previews automáticos.
 
-Se implementó autenticación completa usando `@supabase/ssr`, con tres 
-clientes especializados según el contexto de ejecución:
+## Contacto
 
-- `src/lib/supabase/client.ts` — cliente para Client Components (browser).
-- `src/lib/supabase/server.ts` — cliente para Server Components y Server 
-  Actions, con lectura/escritura de cookies vía `next/headers`.
-- `src/lib/supabase/middleware.ts` — cliente para el Proxy (ex-Middleware), 
-  que refresca la sesión y valida al usuario con `supabase.auth.getUser()` 
-  en cada request.
+**Agustín Rodríguez** · Desarrollador full stack
 
-### Protección de rutas
-
-`src/proxy.ts` intercepta todas las requests (excepto assets estáticos) y 
-redirige a `/login` si el usuario intenta acceder a una ruta protegida 
-(`/dashboard`) sin sesión válida. La página `/dashboard` además valida la 
-sesión en el propio Server Component como segunda capa de seguridad.
-
-### Flujo de usuario
-
-- **`/login`** — formulario con dos acciones (`login` y `signup`), 
-  implementadas como Server Actions en `src/app/login/actions.ts`.
-- **`/dashboard`** — ruta protegida que muestra el email del usuario 
-  logueado y un botón de logout.
-
-### Probar el flujo
-
-1. Con `npm run dev` corriendo, andá a `http://localhost:3000/login`.
-2. Registrate con un email y contraseña (mínimo 6 caracteres).
-3. Si la confirmación de email está desactivada en el dashboard de Supabase 
-   (Authentication → Providers → Email), el login te lleva directo a 
-   `/dashboard`.
-4. Probá entrar a `/dashboard` en una ventana de incógnito (sin sesión): 
-   el Proxy te redirige automáticamente a `/login`.
-
-### Variables de entorno necesarias
-
-\`\`\`
-NEXT_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tu-anon-key
-\`\`\`
-
-> Importante: la URL debe ser la "Project URL" base del dashboard de 
-> Supabase (Project Settings → API), sin sufijos como `/rest/v1`.
-
-## Seguridad: tRPC protegido + Row Level Security (RLS)
-
-Se agregó una capa de seguridad en dos niveles independientes: autorización 
-en la API (tRPC) y autorización en la base de datos (Postgres RLS).
-
-### Contexto enriquecido con sesión
-
-`src/lib/trpc/context.ts` obtiene el usuario autenticado leyendo las cookies 
-de sesión vía `@supabase/ssr` y `supabase.auth.getUser()` (valida el JWT 
-contra el servidor, no confía en la cookie a ciegas). El resultado (`User` 
-o `null`) se expone como `ctx.user` en todos los procedimientos.
-
-### `protectedProcedure`
-
-En `src/lib/trpc/server.ts` se definió un middleware `isAuthed` que corta 
-la ejecución con `TRPCError({ code: 'UNAUTHORIZED' })` si `ctx.user` es 
-`null`, antes de que el resolver toque la base de datos. `protectedProcedure` 
-combina el procedure base con este middleware, y además hace *type narrowing*: 
-dentro de un `protectedProcedure`, `ctx.user` ya no puede ser `null` según 
-TypeScript.
-
-Procedimientos migrados a `protectedProcedure`:
-
-- `user.createUser` — el `id` del profile se toma de `ctx.user.id` 
-  (mismo UUID que `auth.users`), no de un input.
-- `post.createPost` — el `authorId` se toma de `ctx.user.id`, nunca del 
-  body que manda el cliente.
-
-Las queries de lectura (`getUsers`, `getPosts`) siguen siendo 
-`publicProcedure`, por diseño: la lectura es pública, la escritura requiere 
-sesión.
-
-### Row Level Security (RLS)
-
-Se habilitó RLS en `profiles` y `posts`, con políticas basadas en 
-`auth.uid()`. El SQL aplicado está versionado en 
-`drizzle/manual/0001_enable_rls.sql`:
-
-\`\`\`sql
-ALTER TABLE "profiles" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "posts" ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Los usuarios solo pueden crear posts propios"
-  ON "posts" FOR INSERT
-  WITH CHECK (auth.uid() = author_id);
--- (resto de políticas en el archivo completo)
-\`\`\`
-
-**Nota sobre el alcance de RLS:** la conexión de Drizzle (`DATABASE_URL`) 
-usa un rol con privilegios elevados que no pasa por RLS — por eso 
-`protectedProcedure` es el control principal para las queries que hace 
-el propio backend. RLS actúa como segunda capa, protegiendo el escenario 
-en que alguien acceda directo a la base con la Anon Key (por ejemplo, 
-desde `@supabase/ssr` en el browser), sin pasar por la API de tRPC. Es 
-defensa en profundidad: dos capas independientes cubriendo vectores de 
-ataque distintos.
-
-### Probar la protección
-
-Sin sesión, con Thunder Client (no manda cookies del navegador):
-
-\`\`\`
-POST http://localhost:3000/api/trpc/post.createPost
-Body: { "title": "Post sin sesión" }
-\`\`\`
-
-Devuelve `401 UNAUTHORIZED`:
-
-\`\`\`json
-{
-  "error": {
-    "message": "Debés iniciar sesión para realizar esta acción",
-    "data": { "code": "UNAUTHORIZED", "httpStatus": 401 }
-  }
-}
-\`\`\`
-
-Con sesión (logueado en `/login`, desde la consola del navegador en 
-`/dashboard`):
-
-\`\`\`javascript
-fetch('/api/trpc/post.createPost', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ title: 'Post con sesión válida' }),
-  credentials: 'include',
-}).then(r => r.json()).then(console.log);
-\`\`\`
-
-Devuelve el post creado con `authorId` igual al `id` del usuario logueado.
-
-## Evidencia RLS funcionando
-
-![Rol anon Error](./assets/RLS-working.JPG)
+📧 agustinlihuel@gmail.com
+💼 [LinkedIn](https://www.linkedin.com/in/agustin-lihuel-rodr%C3%ADguez-9968b7353/)
+🐙 [GitHub](https://github.com/AgustinRodriguez23)

@@ -1,26 +1,33 @@
 import { redirect } from 'next/navigation';
+import { eq } from 'drizzle-orm';
 import { createClient } from '@/lib/supabase/server';
-import { logout } from '../login/actions';
+import { db } from '@/db';
+import { profiles } from '@/db/schema';
+import MyPins from './MyPins';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login');
-  }
+  if (!user) redirect('/login');
+
+  const [profile] = await db
+    .select()
+    .from(profiles)
+    .where(eq(profiles.id, user.id));
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>Dashboard</h1>
-      <p>Sesión iniciada como: <strong>{user.email}</strong></p>
+    <main className="mx-auto max-w-6xl px-4 py-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">
+          {profile?.username ?? 'Mi perfil'}
+        </h1>
+        <p className="text-sm text-neutral-500">{user.email}</p>
+      </header>
 
-      <form>
-        <button formAction={logout}>Cerrar sesión</button>
-      </form>
+      <MyPins />
     </main>
   );
 }

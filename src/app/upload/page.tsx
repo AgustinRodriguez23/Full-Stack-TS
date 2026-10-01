@@ -76,50 +76,59 @@ console.log('getUser:', { user, authError });
 
   const busy = uploading || createPin.isPending;
 
-  return (
-    <main style={{ padding: 24, maxWidth: 480 }}>
-      <h1>Subir imagen</h1>
+    return (
+    <main className="mx-auto max-w-lg px-4 py-8">
+      <h1 className="mb-6 text-3xl font-bold tracking-tight">Subir imagen</h1>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <input
-            type="text"
-            placeholder="Título"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <textarea
-            placeholder="Descripción (opcional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-        </div>
-        <div>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as PinCategory)}
-          >
-            {PIN_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </div>
-        <button type="submit" disabled={busy}>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 rounded-2xl bg-white p-6 shadow-sm"
+      >
+        <input
+          type="text"
+          placeholder="Título"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-900"
+        />
+
+        <textarea
+          placeholder="Descripción (opcional)"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-900"
+        />
+
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value as PinCategory)}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 capitalize outline-none focus:border-neutral-900"
+        >
+          {PIN_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="w-full text-sm file:mr-3 file:rounded-full file:border-0 file:bg-neutral-900 file:px-4 file:py-2 file:text-white hover:file:bg-neutral-700"
+        />
+
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full rounded-full bg-neutral-900 py-2.5 font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+        >
           {busy ? 'Subiendo...' : 'Publicar'}
         </button>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
     </main>
   );
