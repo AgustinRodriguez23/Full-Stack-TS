@@ -25,4 +25,9 @@ export const userRouter = router({
 
       return newUser;
     }),
+
+  // Devuelve el usuario de la sesión, o null si no hay sesión (no lanza 401)
+  me: publicProcedure.query(({ ctx }) => {
+    return ctx.user ? { id: ctx.user.id, email: ctx.user.email } : null;
+  }),  
 });
