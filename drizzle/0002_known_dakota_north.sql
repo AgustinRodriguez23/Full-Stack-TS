@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "username_changes" integer DEFAULT 0 NOT NULL;

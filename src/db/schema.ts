@@ -3,6 +3,7 @@ import {
   pgEnum,
   uuid,
   serial,
+  integer,
   text,
   boolean,
   timestamp,
@@ -12,6 +13,7 @@ import { relations } from "drizzle-orm";
 export const profiles = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
   username: text("username").notNull(),
+  usernameChanges: integer("username_changes").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

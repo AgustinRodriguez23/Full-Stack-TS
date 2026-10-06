@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { router, publicProcedure, protectedProcedure } from '../server';
 import { profiles } from '@/db/schema';
+import { eq, sql, lt, and } from 'drizzle-orm';
+import { updateUsernameSchema } from '@/lib/validation/user';
+import { TRPCError } from '@trpc/server';
+import { MAX_USERNAME_CHANGES } from '@/lib/validation/user';
 
 export const userRouter = router({
   getUsers: publicProcedure.query(async ({ ctx }) => {
@@ -29,5 +33,48 @@ export const userRouter = router({
   // Devuelve el usuario de la sesión, o null si no hay sesión (no lanza 401)
   me: publicProcedure.query(({ ctx }) => {
     return ctx.user ? { id: ctx.user.id, email: ctx.user.email } : null;
-  }),  
+  }),
+  
+    getById: publicProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const [profile] = await ctx.db
+        .select({ id: profiles.id, username: profiles.username, createdAt: profiles.createdAt })
+        .from(profiles)
+        .where(eq(profiles.id, input.id));
+
+      return profile ?? null;
+    }),
+
+      updateUsername: protectedProcedure
+    .input(updateUsernameSchema)
+    .mutation(async ({ ctx, input }) => {
+      // El límite va dentro del WHERE: es una sola operación atómica,
+      // así dos requests simultáneos no pueden saltarse el tope.
+      const [updated] = await ctx.db
+        .update(profiles)
+        .set({
+          username: input.username,
+          usernameChanges: sql`${profiles.usernameChanges} + 1`,
+        })
+        .where(
+          and(
+            eq(profiles.id, ctx.user.id),
+            lt(profiles.usernameChanges, MAX_USERNAME_CHANGES)
+          )
+        )
+        .returning({
+          username: profiles.username,
+          usernameChanges: profiles.usernameChanges,
+        });
+
+      if (!updated) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: `Alcanzaste el límite de ${MAX_USERNAME_CHANGES} cambios de username`,
+        });
+      }
+
+      return updated;
+    }),
 });

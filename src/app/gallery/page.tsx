@@ -5,6 +5,7 @@ import { trpc } from '@/lib/trpc/client';
 import { createClient } from '@/lib/supabase/client';
 import { PIN_CATEGORIES, type PinCategory } from '@/lib/validation/pin';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import Link from 'next/link';
 
 const chip =
   'rounded-full px-4 py-1.5 text-sm capitalize transition border';
@@ -102,14 +103,22 @@ export default function GalleryPage() {
                   onClick={() => setPinToDelete({ id: pin.id, imagePath: pin.imagePath })}
                   disabled={deletePin.isPending}
                   className="absolute right-2 top-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-red-600 opacity-0 shadow transition hover:bg-white group-hover:opacity-100 disabled:opacity-50"
-                >
+                  >
                   Borrar
                 </button>
               )}
 
-              <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white opacity-0 transition group-hover:opacity-100">
-                <p className="font-medium">{pin.title}</p>
-                <p className="text-xs capitalize text-white/80">{pin.category}</p>
+                <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white opacity-0 transition group-hover:opacity-100">
+                  <p className="font-medium">{pin.title}</p>
+                  <p className="text-xs capitalize text-white/80">{pin.category}</p>
+                  {pin.authorName && (
+                    <Link
+                      href={`/profile/${pin.authorId}`}
+                      className="pointer-events-auto text-xs underline underline-offset-2 hover:text-white"
+                      >
+                      por {pin.authorName}
+                    </Link>
+                  )}
               </figcaption>
             </figure>
           );

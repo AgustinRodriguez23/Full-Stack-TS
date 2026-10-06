@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { db } from '@/db';
 import { profiles } from '@/db/schema';
 import MyPins from './MyPins';
+import { MAX_USERNAME_CHANGES } from '@/lib/validation/user';
+import UsernameForm from './UsernameForm';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -25,6 +27,10 @@ export default async function DashboardPage() {
           {profile?.username ?? 'Mi perfil'}
         </h1>
         <p className="text-sm text-neutral-500">{user.email}</p>
+        <UsernameForm
+          initial={profile?.username ?? ''}
+          remaining={MAX_USERNAME_CHANGES - (profile?.usernameChanges ?? 0)}
+        />
       </header>
 
       <MyPins />
