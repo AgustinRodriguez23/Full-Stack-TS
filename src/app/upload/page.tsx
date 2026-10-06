@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { trpc } from '@/lib/trpc/client';
-import { PIN_CATEGORIES, type PinCategory } from '@/lib/validation/pin';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -12,10 +11,12 @@ export default function UploadPage() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState<PinCategory>('tatuajes');
+  const [categoryId, setCategoryId] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const categoriesQuery = trpc.category.getAll.useQuery();
 
   const createPin = trpc.pin.create.useMutation({
     onSuccess: () => router.push('/gallery'),
@@ -25,19 +26,21 @@ export default function UploadPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
     if (!file) {
       setError('Elegí una imagen');
+      return;
+    }
+    if (!categoryId) {
+      setError('Elegí una categoría');
       return;
     }
 
     setUploading(true);
 
     const {
-  data: { user },
-  error: authError,
-} = await supabase.auth.getUser();
-
-console.log('getUser:', { user, authError });
+      data: { user },
+    } = await supabase.auth.getUser();
 
     if (!user) {
       setUploading(false);
@@ -68,7 +71,7 @@ console.log('getUser:', { user, authError });
     createPin.mutate({
       title,
       description: description || undefined,
-      category,
+      categoryId,
       imageUrl: publicUrl,
       imagePath,
     });
@@ -76,7 +79,7 @@ console.log('getUser:', { user, authError });
 
   const busy = uploading || createPin.isPending;
 
-    return (
+  return (
     <main className="mx-auto max-w-lg px-4 py-8">
       <h1 className="mb-6 text-3xl font-bold tracking-tight">Subir imagen</h1>
 
@@ -102,13 +105,17 @@ console.log('getUser:', { user, authError });
         />
 
         <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value as PinCategory)}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 capitalize outline-none focus:border-neutral-900"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          required
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 outline-none focus:border-neutral-900"
         >
-          {PIN_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {c}
+          <option value="" disabled>
+            {categoriesQuery.isLoading ? 'Cargando categorías...' : 'Elegí una categoría'}
+          </option>
+          {categoriesQuery.data?.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </select>
