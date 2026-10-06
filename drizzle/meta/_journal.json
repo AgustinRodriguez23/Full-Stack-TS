@@ -22,6 +22,27 @@
       "when": 1791243861369,
       "tag": "0002_known_dakota_north",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791252029038,
+      "tag": "0003_fast_silk_fever",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791252181609,
+      "tag": "0004_reflective_zeigeist",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791258868189,
+      "tag": "0005_abnormal_silver_fox",
+      "breakpoints": true
     }
   ]
 }

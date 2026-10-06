@@ -1,24 +1,23 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { trpc } from '@/lib/trpc/client';
 import { createClient } from '@/lib/supabase/client';
-import { PIN_CATEGORIES, type PinCategory } from '@/lib/validation/pin';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import Link from 'next/link';
 
-const chip =
-  'rounded-full px-4 py-1.5 text-sm capitalize transition border';
+const chip = 'rounded-full px-4 py-1.5 text-sm transition border';
 
 export default function GalleryPage() {
   const supabase = createClient();
   const utils = trpc.useUtils();
 
-  const [category, setCategory] = useState<PinCategory | undefined>(undefined);
+  const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pinToDelete, setPinToDelete] = useState<{ id: string; imagePath: string } | null>(null);
 
-  const pinsQuery = trpc.pin.getAll.useQuery(category ? { category } : undefined);
+  const categoriesQuery = trpc.category.getAll.useQuery();
+  const pinsQuery = trpc.pin.getAll.useQuery(categoryId ? { categoryId } : undefined);
   const meQuery = trpc.user.me.useQuery();
 
   const deletePin = trpc.pin.delete.useMutation({
@@ -26,22 +25,22 @@ export default function GalleryPage() {
     onError: (e) => setDeleteError(e.message),
   });
 
-    function confirmDelete() {
-      if (!pinToDelete) return;
-      const { id, imagePath } = pinToDelete;
-      setDeleteError(null);
+  function confirmDelete() {
+    if (!pinToDelete) return;
+    const { id, imagePath } = pinToDelete;
+    setDeleteError(null);
 
-      deletePin.mutate(
-        { id },
-        {
-          onSuccess: async () => {
-            const { error } = await supabase.storage.from('pins').remove([imagePath]);
-            if (error) setDeleteError(`Se borró el pin, pero no el archivo: ${error.message}`);
-          },
-          onSettled: () => setPinToDelete(null),
-        }
-      );
-    }
+    deletePin.mutate(
+      { id },
+      {
+        onSuccess: async () => {
+          const { error } = await supabase.storage.from('pins').remove([imagePath]);
+          if (error) setDeleteError(`Se borró el pin, pero no el archivo: ${error.message}`);
+        },
+        onSettled: () => setPinToDelete(null),
+      }
+    );
+  }
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
@@ -49,26 +48,26 @@ export default function GalleryPage() {
 
       <div className="mb-8 flex flex-wrap gap-2">
         <button
-          onClick={() => setCategory(undefined)}
+          onClick={() => setCategoryId(undefined)}
           className={`${chip} ${
-            !category
+            !categoryId
               ? 'border-neutral-900 bg-neutral-900 text-white'
               : 'border-neutral-300 bg-white hover:border-neutral-900'
           }`}
         >
           Todas
         </button>
-        {PIN_CATEGORIES.map((c) => (
+        {categoriesQuery.data?.map((c) => (
           <button
-            key={c}
-            onClick={() => setCategory(c)}
+            key={c.id}
+            onClick={() => setCategoryId(c.id)}
             className={`${chip} ${
-              category === c
+              categoryId === c.id
                 ? 'border-neutral-900 bg-neutral-900 text-white'
                 : 'border-neutral-300 bg-white hover:border-neutral-900'
             }`}
           >
-            {c}
+            {c.name}
           </button>
         ))}
       </div>
@@ -103,28 +102,29 @@ export default function GalleryPage() {
                   onClick={() => setPinToDelete({ id: pin.id, imagePath: pin.imagePath })}
                   disabled={deletePin.isPending}
                   className="absolute right-2 top-2 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-red-600 opacity-0 shadow transition hover:bg-white group-hover:opacity-100 disabled:opacity-50"
-                  >
+                >
                   Borrar
                 </button>
               )}
 
-                <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white opacity-0 transition group-hover:opacity-100">
-                  <p className="font-medium">{pin.title}</p>
-                  <p className="text-xs capitalize text-white/80">{pin.category}</p>
-                  {pin.authorName && (
-                    <Link
-                      href={`/profile/${pin.authorId}`}
-                      className="pointer-events-auto text-xs underline underline-offset-2 hover:text-white"
-                      >
-                      por {pin.authorName}
-                    </Link>
-                  )}
+              <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3 text-white opacity-0 transition group-hover:opacity-100">
+                <p className="font-medium">{pin.title}</p>
+                <p className="text-xs text-white/80">{pin.categoryName}</p>
+                {pin.authorName && (
+                  <Link
+                    href={`/profile/${pin.authorId}`}
+                    className="pointer-events-auto text-xs underline underline-offset-2 hover:text-white"
+                  >
+                    por {pin.authorName}
+                  </Link>
+                )}
               </figcaption>
             </figure>
           );
         })}
       </div>
-        <ConfirmDialog
+
+      <ConfirmDialog
         open={pinToDelete !== null}
         title="¿Borrar esta imagen?"
         message="Esta acción no se puede deshacer."
@@ -132,7 +132,7 @@ export default function GalleryPage() {
         loading={deletePin.isPending}
         onConfirm={confirmDelete}
         onCancel={() => setPinToDelete(null)}
-        />
+      />
     </main>
   );
 }

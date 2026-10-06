@@ -10,11 +10,14 @@ import {
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
+export const userRole = pgEnum("user_role", ["user", "admin"]);
+
 export const profiles = pgTable("profiles", {
   id: uuid("id").defaultRandom().primaryKey(),
   username: text("username").notNull(),
   usernameChanges: integer("username_changes").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  role: userRole("role").default("user").notNull(),
 });
 
 export const posts = pgTable("posts", {
@@ -38,24 +41,19 @@ export const postsRelations = relations(posts, ({ one }) => ({
   }),
 }));
 
-export const pinCategory = pgEnum("pin_category", [
-  "tatuajes",
-  "paisajes",
-  "dibujos",
-  "ropa",
-]);
-
 export const pins = pgTable("pins", {
   id: uuid("id").defaultRandom().primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
   imageUrl: text("image_url").notNull(),
   imagePath: text("image_path").notNull(),
-  category: pinCategory("category").notNull(),
   authorId: uuid("author_id")
     .references(() => profiles.id, { onDelete: "cascade" })
     .notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  categoryId: uuid("category_id")
+    .references(() => categories.id, { onDelete: "restrict" })
+    .notNull(),
 });
 
 export const pinsRelations = relations(pins, ({ one }) => ({
@@ -64,3 +62,10 @@ export const pinsRelations = relations(pins, ({ one }) => ({
     references: [profiles.id],
   }),
 }));
+
+export const categories = pgTable("categories", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull().unique(),
+  slug: text("slug").notNull().unique(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { and, desc, eq, getTableColumns } from 'drizzle-orm';
 import { router, publicProcedure, protectedProcedure } from '../server';
-import { pins, profiles } from '@/db/schema';
+import { pins, profiles, categories } from '@/db/schema';
 import {
   createPinSchema,
   getPinsSchema,
@@ -12,28 +12,34 @@ export const pinRouter = router({
   // Pública: la vista general, con filtro opcional por categoría/autor
     getAll: publicProcedure.input(getPinsSchema).query(async ({ ctx, input }) => {
       const conditions = [];
-      if (input?.category) conditions.push(eq(pins.category, input.category));
+      if (input?.categoryId) conditions.push(eq(pins.categoryId, input.categoryId));
       if (input?.authorId) conditions.push(eq(pins.authorId, input.authorId));
 
       return ctx.db
         .select({
           ...getTableColumns(pins),
           authorName: profiles.username,
+          categoryName: categories.name,
         })
         .from(pins)
         .leftJoin(profiles, eq(pins.authorId, profiles.id))
+        .leftJoin(categories, eq(pins.categoryId, categories.id))
         .where(conditions.length > 0 ? and(...conditions) : undefined)
         .orderBy(desc(pins.createdAt));
     }),
 
   // Protegida: solo los pins del usuario logueado
-  getMine: protectedProcedure.query(async ({ ctx }) => {
-    return ctx.db
-      .select()
-      .from(pins)
-      .where(eq(pins.authorId, ctx.user.id))
-      .orderBy(desc(pins.createdAt));
-  }),
+    getMine: protectedProcedure.query(async ({ ctx }) => {
+      return ctx.db
+        .select({
+          ...getTableColumns(pins),
+          categoryName: categories.name,
+        })
+        .from(pins)
+        .leftJoin(categories, eq(pins.categoryId, categories.id))
+        .where(eq(pins.authorId, ctx.user.id))
+        .orderBy(desc(pins.createdAt));
+    }),
 
   create: protectedProcedure
     .input(createPinSchema)
