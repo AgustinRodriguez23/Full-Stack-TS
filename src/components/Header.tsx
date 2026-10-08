@@ -1,12 +1,24 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { logout } from '@/app/login/actions';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { profiles } from '@/db/schema';
 
 export default async function Header() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  let isAdmin = false;
+    if (user) {
+      const [profile] = await db
+        .select({ role: profiles.role })
+        .from(profiles)
+        .where(eq(profiles.id, user.id));
+      isAdmin = profile?.role === 'admin';
+    }
 
   return (
     <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/90 backdrop-blur">
@@ -28,6 +40,11 @@ export default async function Header() {
               <Link href="/dashboard" className="hover:text-neutral-500">
                 Mi perfil
             </Link>
+              {isAdmin && (
+                <Link href="/admin" className="hover:text-neutral-500">
+                  Admin
+                </Link>
+              )}
               <form>
                 <button
                   formAction={logout}
