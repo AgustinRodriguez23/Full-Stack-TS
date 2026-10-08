@@ -31,9 +31,20 @@ export const userRouter = router({
     }),
 
   // Devuelve el usuario de la sesión, o null si no hay sesión (no lanza 401)
-  me: publicProcedure.query(({ ctx }) => {
-    return ctx.user ? { id: ctx.user.id, email: ctx.user.email } : null;
-  }),
+    me: publicProcedure.query(async ({ ctx }) => {
+      if (!ctx.user) return null;
+
+      const [profile] = await ctx.db
+        .select({ role: profiles.role })
+        .from(profiles)
+        .where(eq(profiles.id, ctx.user.id));
+
+      return {
+        id: ctx.user.id,
+        email: ctx.user.email,
+        role: profile?.role ?? 'user',
+      };
+    }),
   
     getById: publicProcedure
     .input(z.object({ id: z.string().uuid() }))
